@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#090d16">
+  <title>Fábrica del Tiempo | Trivia Arcade</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ["Impact", "Arial Black", "sans-serif"],
+            body: ["Inter", "system-ui", "sans-serif"]
+          },
+          colors: {
+            ink: "#090d16",
+            panel: "#121a29",
+            copper: "#f59e0b",
+            cyan: "#22d3ee"
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      background: #090d16;
+      color: #f8fafc;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(245, 158, 11, 0.13), transparent 30%),
+        radial-gradient(circle at 85% 70%, rgba(34, 211, 238, 0.10), transparent 30%),
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: auto, auto, 32px 32px, 32px 32px;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0.45;
+      background: linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.05) 50%);
+      background-size: 4px 4px;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+      animation: screenIn 0.38s ease both;
+    }
+
+    .metal {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: linear-gradient(145deg, rgba(28,39,59,0.96), rgba(10,15,25,0.98));
+      box-shadow:
+        0 20px 70px rgba(0,0,0,0.42),
+        inset 0 1px rgba(255,255,255,0.08);
+    }
+
+    .title-glow {
+      text-shadow: 0 0 26px rgba(245,158,11,0.35);
+    }
+
+    .arcade-btn {
+      position: relative;
+      isolation: isolate;
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow:
+        0 7px 0 #78350f,
+        0 12px 25px rgba(0,0,0,0.35);
+      transition: transform 0.12s, box-shadow 0.12s, filter 0.2s;
+      touch-action: manipulation;
+    }
+
+    .arcade-btn:hover {
+      filter: brightness(1.08);
+    }
+
+    .arcade-btn:active {
+      transform: translateY(5px);
+      box-shadow:
+        0 2px 0 #78350f,
+        0 6px 12px rgba(0,0,0,0.30);
+    }
+
+    .answer {
+      width: 100%;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-align: left;
+      border: 1px solid rgba(148,163,184,0.22);
+      background: rgba(15,23,42,0.82);
+      transition: 0.18s;
+      touch-action: manipulation;
+    }
+
+    .answer:hover:not(:disabled) {
+      transform: translateX(4px);
+      border-color: #22d3ee;
+      background: rgba(8,145,178,0.12);
+    }
+
+    .answer:disabled {
+      cursor: default;
+    }
+
+    .answer.selected {
+      border-color: #22d3ee;
+      background: rgba(34,211,238,0.13);
+    }
+
+    .answer.correct {
+      border-color: #34d399;
+      background: rgba(16,185,129,0.17);
+      box-shadow: 0 0 24px rgba(16,185,129,0.13);
+    }
+
+    .answer.wrong {
+      border-color: #fb7185;
+      background: rgba(244,63,94,0.16);
+    }
+
+    .letter {
+      flex: 0 0 36px;
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: #1e293b;
+      color: #67e8f9;
+      font-weight: 900;
+    }
+
+    .answer.correct .letter {
+      background: #059669;
+      color: white;
+    }
+
+    .answer.wrong .letter {
+      background: #e11d48;
+      color: white;
+    }
+
+    .gear {
+      position: absolute;
+      border: 3px dashed rgba(245,158,11,0.18);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: spin 18s linear infinite;
+    }
+
+    .pulse {
+      animation: pulse 1s ease infinite;
+    }
+
+    .pop {
+      animation: pop 0.35s cubic-bezier(0.2,1.7,0.4,1);
+    }
+
+    .shake {
+      animation: shake 0.35s ease;
+    }
+
+    .timer-ring {
+      background: conic-gradient(
+        #22d3ee var(--progress, 100%),
+        rgba(148,163,184,0.16) 0
+      );
+    }
+
+    @keyframes screenIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+      50% {
+        opacity: 0.55;
+        transform: scale(0.96);
+      }
+    }
+
+    @keyframes pop {
+      from {
+        transform: scale(0.65);
+        opacity: 0;
+      }
+    }
+
+    @keyframes shake {
+      25% { transform: translateX(-7px); }
+      50% { transform: translateX(7px); }
+      75% { transform: translateX(-4px); }
+    }
+
+    @media (max-width: 640px) {
+      .answer {
+        min-height: 58px;
+      }
+
+      .gear {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="gear w-52 h-52 -left-24 top-24"></div>
+  <div
+    class="gear w-72 h-72 -right-36 bottom-10"
+    style="animation-direction: reverse"
+  ></div>
+
+  <main class="w-full max-w-6xl mx-auto min-h-[100dvh] px-4 py-5 sm:px-7 sm:py-8 flex items-center">
+
+    <section id="homeScreen" class="screen active w-full">
+      <div class="metal rounded-[2rem] overflow-hidden">
+        <div class="grid lg:grid-cols-[1.12fr_.88fr]">
+
+          <div class="p-6 sm:p-10 lg:p-14 relative">
+            <div class="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-extrabold uppercase tracking-[.2em] text-amber-300">
+              <span class="w-2 h-2 rounded-full bg-amber-400 pulse"></span>
+              Aula Arcade · Historia
+            </div>
+
+            <p class="mt-7 text-cyan-300 font-black tracking-[.25em] text-xs uppercase">
+              Misión cronológica 1750—1914
+            </p>
+
+            <h1 class="title-glow mt-2 font-display uppercase leading-[.88] text-5xl sm:text-7xl lg:text-8xl tracking-tight">
+              Fábrica<br>
+              <span class="text-amber-400">del Tiempo</span>
+            </h1>
+
+            <p class="mt-6 max-w-xl text-slate-300 text-base sm:text-lg leading-relaxed">
+              Activa las máquinas de la historia y demuestra cuánto sabes sobre el mundo antes y después de 1800.
+            </p>
+
+            <div class="mt-7 grid grid-cols-3 gap-2 sm:gap-3 max-w-xl">
+              <div class="rounded-xl bg-black/20 border border-white/10 p-3">
+                <strong class="block text-xl text-white">12</strong>
+                <span class="text-[11px] text-slate-400 uppercase">Preguntas</span>
+              </div>
+
+              <div class="rounded-xl bg-black/20 border border-white/10 p-3">
+                <strong class="block text-xl text-cyan-300">20 s</strong>
+                <span class="text-[11px] text-slate-400 uppercase">Por reto</span>
+              </div>
+
+              <div class="rounded-xl bg-black/20 border border-white/10 p-3">
+                <strong class="block text-xl text-amber-300">×3</strong>
+                <span class="text-[11px] text-slate-400 uppercase">Velocidad</span>
+              </div>
+            </div>
+
+            <form id="startForm" class="mt-8 max-w-xl" autocomplete="off">
+              <label for="playerName" class="block mb-2 text-sm font-bold text-slate-200">
+                Nombre del jugador
+              </label>
+
+              <div class="flex flex-col sm:flex-row gap-3">
+                <input
+                  id="playerName"
+                  maxlength="18"
+                  required
+                  placeholder="Escribe tu nombre"
+                  class="min-w-0 flex-1 rounded-xl border border-slate-600 bg-slate-950/70 px-4 py-4 text-white outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                >
+
+                <button class="arcade-btn rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-7 py-4 font-black uppercase tracking-wider text-slate-950">
+                  Iniciar misión
+                </button>
+              </div>
+
+              <p id="nameError" class="hidden mt-2 text-sm text-rose-300">
+                Ingresa un nombre para entrar a la fábrica.
+              </p>
+            </form>
+          </div>
+
+          <aside class="bg-slate-950/45 border-t lg:border-t-0 lg:border-l border-white/10 p-6 sm:p-9 flex flex-col justify-center">
+            <div class="flex items-center justify-between">
+              <h2 class="font-display uppercase tracking-wider text-2xl">Top 5 local</h2>
+              <span class="text-xs text-slate-500">🏆 LEADERBOARD</span>
+            </div>
+
+            <ol id="homeLeaderboard" class="mt-5 space-y-3"></ol>
+
+            <div class="mt-7 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-slate-300">
+              <strong class="text-cyan-300">Cómo puntuar:</strong>
+              acierta rápido para ganar ×3. Las preguntas de selección múltiple valen más.
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen w-full">
+      <div class="flex flex-wrap gap-3 items-center justify-between mb-4">
+        <div>
+          <p class="text-xs uppercase tracking-[.22em] text-slate-500">Operador</p>
+          <p id="playerLabel" class="font-black text-lg"></p>
+        </div>
+
+        <div class="flex gap-2 sm:gap-3">
+          <div class="rounded-xl border border-white/10 bg-slate-900/80 px-3 sm:px-4 py-2">
+            <span class="text-[10px] uppercase text-slate-500 block">Racha</span>
+            <strong id="streakLabel" class="text-amber-300">🔥 0</strong>
+          </div>
+
+          <div class="rounded-xl border border-white/10 bg-slate-900/80 px-3 sm:px-4 py-2">
+            <span class="text-[10px] uppercase text-slate-500 block">Puntos</span>
+            <strong id="scoreLabel" class="text-cyan-300">0</strong>
+          </div>
+
+          <button
+            id="soundBtn"
+            type="button"
+            aria-label="Activar o silenciar sonido"
+            class="rounded-xl border border-white/10 bg-slate-900/80 px-4 text-xl"
+          >
+            🔊
+          </button>
+        </div>
+      </div>
+
+      <div class="h-2 rounded-full bg-slate-800 overflow-hidden mb-4">
+        <div
+          id="progressBar"
+          class="h-full bg-gradient-to-r from-cyan-400 to-amber-400 transition-all duration-500"
+          style="width: 8.33%"
+        ></div>
+      </div>
+
+      <article id="questionCard" class="metal rounded-[1.75rem] p-5 sm:p-8 lg:p-10">
+        <div class="flex gap-4 items-start justify-between">
+          <div>
+            <p id="eraLabel" class="text-xs font-black tracking-[.2em] uppercase text-amber-300"></p>
+            <p id="questionCounter" class="mt-1 text-sm text-slate-500"></p>
+          </div>
+
+          <div
+            id="timerRing"
+            class="timer-ring w-16 h-16 sm:w-20 sm:h-20 rounded-full p-[5px] shrink-0"
+            style="--progress: 100%"
+          >
+            <div class="w-full h-full rounded-full bg-slate-950 grid place-items-center">
+              <div class="text-center">
+                <strong id="timerLabel" class="block text-xl sm:text-2xl">20</strong>
+                <span id="multiplierLabel" class="text-[10px] font-black text-cyan-300">×3</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-wrap items-center gap-2">
+          <span id="typeBadge" class="rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300"></span>
+          <span id="typeHint" class="text-xs text-slate-500"></span>
+        </div>
+
+        <h2 id="questionText" class="mt-4 text-xl sm:text-3xl font-black leading-tight max-w-4xl"></h2>
+
+        <div id="answersGrid" class="mt-6 grid gap-3 sm:grid-cols-2"></div>
+
+        <div id="feedbackPanel" class="hidden mt-6 rounded-xl border p-4 sm:p-5">
+          <div class="flex gap-3">
+            <span id="feedbackIcon" class="text-2xl"></span>
+
+            <div>
+              <h3 id="feedbackTitle" class="font-black text-lg"></h3>
+              <p id="feedbackText" class="mt-1 text-sm sm:text-base text-slate-300 leading-relaxed"></p>
+              <p id="pointsEarned" class="mt-2 font-black text-amber-300"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+          <button
+            id="submitMultiBtn"
+            type="button"
+            class="hidden arcade-btn rounded-xl bg-cyan-400 px-6 py-3 font-black text-slate-950"
+          >
+            CONFIRMAR
+          </button>
+
+          <button
+            id="nextBtn"
+            type="button"
+            class="hidden arcade-btn rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-7 py-3 font-black text-slate-950"
+          >
+            SIGUIENTE →
+          </button>
+        </div>
+      </article>
+    </section>
+
+    <section id="resultScreen" class="screen w-full">
+      <div class="metal rounded-[2rem] p-6 sm:p-10 text-center overflow-hidden relative">
+        <div id="resultMedal" class="text-7xl pop">🏆</div>
+
+        <p class="mt-4 text-xs uppercase tracking-[.25em] text-cyan-300">
+          Misión completada
+        </p>
+
+        <h2 id="resultTitle" class="mt-2 font-display uppercase text-4xl sm:text-6xl text-amber-400 title-glow">
+          Maestro Industrial
+        </h2>
+
+        <p id="resultMessage" class="mt-3 text-slate-300 max-w-xl mx-auto"></p>
+
+        <div class="mt-7 grid grid-cols-3 gap-2 sm:gap-4 max-w-2xl mx-auto">
+          <div class="rounded-xl bg-black/25 border border-white/10 p-4">
+            <strong id="finalScore" class="block text-2xl sm:text-4xl text-cyan-300">0</strong>
+            <span class="text-[10px] sm:text-xs uppercase text-slate-500">Puntos</span>
+          </div>
+
+          <div class="rounded-xl bg-black/25 border border-white/10 p-4">
+            <strong id="finalCorrect" class="block text-2xl sm:text-4xl text-emerald-300">0/12</strong>
+            <span class="text-[10px] sm:text-xs uppercase text-slate-500">Aciertos</span>
+          </div>
+
+          <div class="rounded-xl bg-black/25 border border-white/10 p-4">
+            <strong id="finalBestStreak" class="block text-2xl sm:text-4xl text-amber-300">0</strong>
+            <span class="text-[10px] sm:text-xs uppercase text-slate-500">Mejor racha</span>
+          </div>
+        </div>
+
+        <div class="mt-8 max-w-2xl mx-auto text-left">
+          <div class="flex justify-between items-center gap-4">
+            <h3 class="font-display uppercase text-2xl">Clasificación</h3>
+            <span id="rankMessage" class="text-sm font-bold text-amber-300 text-right"></span>
+          </div>
+
+          <ol id="resultLeaderboard" class="mt-4 space-y-2"></ol>
+        </div>
+
+        <div class="mt-8 flex flex-col sm:flex-row justify-center gap-3">
+          <button
+            id="restartBtn"
+            class="arcade-btn rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-7 py-4 font-black text-slate-950"
+          >
+            JUGAR DE NUEVO
+          </button>
+
+          <button
+            id="homeBtn"
+            class="rounded-xl border border-slate-600 bg-slate-800 px-7 py-4 font-black hover:bg-slate-700"
+          >
+            CAMBIAR JUGADOR
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const QUESTION_BANK = [
+      {
+        era: "Antes de 1800",
+        type: "choice",
+        question: "¿Qué sistema productivo predominaba en Europa antes de la mecanización industrial?",
+        options: [
+          "Producción artesanal y doméstica",
+          "Líneas de montaje automatizadas",
+          "Fábricas electrificadas",
+          "Producción robotizada"
+        ],
+        correct: [0],
+        explanation: "El sistema doméstico o putting-out system distribuía materias primas a familias y artesanos que trabajaban principalmente en sus hogares."
+      },
+      {
+        era: "Antes de 1800",
+        type: "boolean",
+        question: "Antes de la Revolución Industrial, la mayoría de la población europea vivía en ciudades.",
+        options: ["Verdadero", "Falso"],
+        correct: [1],
+        explanation: "La mayoría vivía en áreas rurales y dependía directa o indirectamente de la agricultura."
+      },
+      {
+        era: "Primera Revolución",
+        type: "choice",
+        question: "¿Qué sector lideró la primera mecanización británica durante el siglo XVIII?",
+        options: [
+          "Industria textil",
+          "Industria aeronáutica",
+          "Telecomunicaciones",
+          "Industria del automóvil"
+        ],
+        correct: [0],
+        explanation: "La industria textil impulsó innovaciones como la spinning jenny, el telar hidráulico y el telar mecánico."
+      },
+      {
+        era: "Primera Revolución",
+        type: "choice",
+        question: "¿Qué mejora de James Watt permitió usar el vapor con mayor eficiencia?",
+        options: [
+          "El condensador separado",
+          "La bombilla eléctrica",
+          "El motor de combustión",
+          "El telégrafo"
+        ],
+        correct: [0],
+        explanation: "El condensador separado redujo la pérdida de energía y amplió el uso industrial de la máquina de vapor."
+      },
+      {
+        era: "Alrededor de 1800",
+        type: "multiple",
+        question: "Selecciona DOS fuentes de energía fundamentales en la Primera Revolución Industrial.",
+        options: ["Carbón", "Vapor", "Petróleo", "Energía nuclear"],
+        correct: [0, 1],
+        explanation: "El carbón alimentaba las máquinas que convertían la energía del vapor en movimiento mecánico."
+      },
+      {
+        era: "Después de 1800",
+        type: "choice",
+        question: "¿Cuál fue un efecto directo del ferrocarril sobre la economía?",
+        options: [
+          "Redujo tiempos y costos de transporte",
+          "Eliminó el comercio internacional",
+          "Detuvo el crecimiento urbano",
+          "Sustituyó toda navegación marítima"
+        ],
+        correct: [0],
+        explanation: "El ferrocarril conectó minas, fábricas, puertos y mercados con más velocidad y regularidad."
+      },
+      {
+        era: "Cambio social",
+        type: "boolean",
+        question: "La industrialización contribuyó al crecimiento de una clase obrera asalariada.",
+        options: ["Verdadero", "Falso"],
+        correct: [0],
+        explanation: "Miles de personas pasaron del trabajo rural o artesanal al empleo asalariado en fábricas y minas."
+      },
+      {
+        era: "Cambio social",
+        type: "multiple",
+        question: "Selecciona DOS problemas frecuentes de las primeras ciudades industriales.",
+        options: [
+          "Hacinamiento",
+          "Contaminación",
+          "Abundancia de áreas verdes",
+          "Jornadas laborales breves"
+        ],
+        correct: [0, 1],
+        explanation: "La urbanización acelerada generó viviendas saturadas, saneamiento deficiente y fuerte contaminación."
+      },
+      {
+        era: "Segunda Revolución",
+        type: "choice",
+        question: "¿Qué combinación caracteriza mejor la Segunda Revolución Industrial?",
+        options: [
+          "Electricidad, acero y química",
+          "Vapor, madera y artesanía",
+          "Agricultura, trueque y molinos",
+          "Silicio, internet y robótica"
+        ],
+        correct: [0],
+        explanation: "Desde aproximadamente 1870, el acero, la electricidad, la química y el petróleo transformaron la producción."
+      },
+      {
+        era: "Producción moderna",
+        type: "choice",
+        question: "¿Qué principio asocia correctamente a Frederick W. Taylor con la industria?",
+        options: [
+          "Estudio científico del trabajo",
+          "Comercio triangular",
+          "Máquina de vapor",
+          "Cooperativismo medieval"
+        ],
+        correct: [0],
+        explanation: "Taylor propuso analizar tareas, tiempos y métodos para aumentar la eficiencia productiva."
+      },
+      {
+        era: "Producción moderna",
+        type: "choice",
+        question: "¿Qué innovación organizativa popularizó Henry Ford en 1913?",
+        options: [
+          "Línea de montaje móvil",
+          "Gremio artesanal",
+          "Barco de vapor",
+          "Telar manual"
+        ],
+        correct: [0],
+        explanation: "La línea de montaje móvil redujo el tiempo de fabricación y favoreció la producción masiva estandarizada."
+      },
+      {
+        era: "Balance histórico",
+        type: "multiple",
+        question: "Selecciona DOS transformaciones de largo plazo asociadas a la industrialización.",
+        options: [
+          "Producción en masa",
+          "Urbanización acelerada",
+          "Desaparición total del campo",
+          "Fin inmediato de la desigualdad"
+        ],
+        correct: [0, 1],
+        explanation: "La industrialización expandió la producción en masa y aceleró la urbanización, aunque no eliminó el campo ni la desigualdad."
+      },
+      {
+        era: "Antes de 1800",
+        type: "choice",
+        question: "¿Por qué Gran Bretaña reunió condiciones favorables para iniciar la industrialización?",
+        options: [
+          "Capital, carbón, comercio y estabilidad institucional",
+          "Ausencia completa de carbón",
+          "Prohibición de patentes",
+          "Aislamiento comercial absoluto"
+        ],
+        correct: [0],
+        explanation: "La combinación de recursos, inversión, comercio, mano de obra e instituciones favoreció la innovación británica."
+      },
+      {
+        era: "Primera Revolución",
+        type: "boolean",
+        question: "La máquina de vapor se utilizó únicamente dentro de las fábricas textiles.",
+        options: ["Verdadero", "Falso"],
+        correct: [1],
+        explanation: "También se usó en minería, transporte ferroviario y navegación, entre otras actividades."
+      },
+      {
+        era: "Trabajo",
+        type: "choice",
+        question: "¿Qué buscaban inicialmente muchas organizaciones obreras?",
+        options: [
+          "Mejores salarios, jornadas y seguridad",
+          "Eliminar toda maquinaria de forma permanente",
+          "Restaurar el feudalismo",
+          "Prohibir la educación pública"
+        ],
+        correct: [0],
+        explanation: "Sindicatos y movimientos obreros reclamaron condiciones más dignas, regulación laboral y representación."
+      },
+      {
+        era: "Segunda Revolución",
+        type: "multiple",
+        question: "Selecciona DOS medios de comunicación asociados al siglo XIX industrial.",
+        options: ["Telégrafo", "Teléfono", "Satélite", "Correo electrónico"],
+        correct: [0, 1],
+        explanation: "El telégrafo y el teléfono aceleraron el intercambio de información a larga distancia durante el siglo XIX."
+      }
+    ];
+
+    const SEED_RANKING = [
+      { name: "Ada", score: 2860 },
+      { name: "James", score: 2470 },
+      { name: "Elena", score: 2180 },
+      { name: "Nikola", score: 1910 },
+      { name: "Samuel", score: 1640 }
+    ];
+
+    const $ = id => document.getElementById(id);
+
+    const state = {
+      player: "",
+      questions: [],
+      index: 0,
+      score: 0,
+      correct: 0,
+      streak: 0,
+      bestStreak: 0,
+      timeLeft: 20,
+      timer: null,
+      answered: false,
+      selected: new Set(),
+      sound: true
+    };
+
+    const refs = {
+      home: $("homeScreen"),
+      game: $("gameScreen"),
+      result: $("resultScreen"),
+      form: $("startForm"),
+      name: $("playerName"),
+      answers: $("answersGrid"),
+      feedback: $("feedbackPanel"),
+      next: $("nextBtn"),
+      submit: $("submitMultiBtn")
+    };
+
+    function shuffle(items) {
+      const copy = [...items];
+
+      for (let index = copy.length - 1; index > 0; index--) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [copy[index], copy[randomIndex]] = [copy[randomIndex], copy[index]];
+      }
+
+      return copy;
+    }
+
+    function getRanking() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("industrialArcadeRanking"));
+        return Array.isArray(saved) && saved.length ? saved : SEED_RANKING;
+      } catch {
+        return SEED_RANKING;
+      }
+    }
+
+    function saveRanking(name, score) {
+      const ranking = [
+        ...getRanking(),
+        {
+          name,
+          score,
+          date: Date.now()
+        }
+      ]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+
+      localStorage.setItem("industrialArcadeRanking", JSON.stringify(ranking));
+      return ranking;
+    }
+
+    function escapeHTML(text) {
+      const element = document.createElement("div");
+      element.textContent = String(text);
+      return element.innerHTML;
+    }
+
+    function renderRanking(target, ranking = getRanking(), highlight = "") {
+      target.innerHTML = ranking.map((player, index) => `
+        <li class="flex items-center gap-3 rounded-xl border ${
+          player.name === highlight
+            ? "border-amber-400/60 bg-amber-400/10"
+            : "border-white/10 bg-black/20"
+        } px-4 py-3">
+          <span class="w-7 text-center font-black ${
+            index === 0 ? "text-amber-300" : "text-slate-500"
+          }">${index + 1}</span>
+          <span class="flex-1 font-bold truncate">${escapeHTML(player.name)}</span>
+          <strong class="text-cyan-300 tabular-nums">
+            ${player.score.toLocaleString("es-PA")}
+          </strong>
+        </li>
+      `).join("");
+    }
+
+    function showScreen(screen) {
+      [refs.home, refs.game, refs.result].forEach(item => {
+        item.classList.remove("active");
+      });
+
+      screen.classList.add("active");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function beep(frequency = 500, duration = 0.08, type = "square") {
+      if (!state.sound) return;
+
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const context = new AudioContext();
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+
+        oscillator.type = type;
+        oscillator.frequency.value = frequency;
+
+        gain.gain.setValueAtTime(0.055, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(
+          0.001,
+          context.currentTime + duration
+        );
+
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+
+        oscillator.start();
+        oscillator.stop(context.currentTime + duration);
+        oscillator.onended = () => context.close();
+      } catch {}
+    }
+
+    function startGame() {
+      state.questions = shuffle(QUESTION_BANK).slice(0, 12);
+
+      Object.assign(state, {
+        index: 0,
+        score: 0,
+        correct: 0,
+        streak: 0,
+        bestStreak: 0,
+        answered: false
+      });
+
+      $("playerLabel").textContent = state.player;
+      updateHud();
+      showScreen(refs.game);
+      renderQuestion();
+      beep(660, 0.1);
+    }
+
+    function updateHud() {
+      $("scoreLabel").textContent = state.score.toLocaleString("es-PA");
+      $("streakLabel").textContent = `🔥 ${state.streak}`;
+      $("progressBar").style.width =
+        `${((state.index + 1) / state.questions.length) * 100}%`;
+    }
+
+    function currentMultiplier() {
+      if (state.timeLeft >= 14) return 3;
+      if (state.timeLeft >= 7) return 2;
+      return 1;
+    }
+
+    function updateTimer() {
+      const percentage = (state.timeLeft / 20) * 100;
+
+      $("timerRing").style.setProperty("--progress", `${percentage}%`);
+      $("timerLabel").textContent = state.timeLeft;
+      $("multiplierLabel").textContent = `×${currentMultiplier()}`;
+      $("timerLabel").classList.toggle("text-rose-400", state.timeLeft <= 5);
+    }
+
+    function renderQuestion() {
+      clearInterval(state.timer);
+
+      state.answered = false;
+      state.selected.clear();
+
+      refs.feedback.className = "hidden mt-6 rounded-xl border p-4 sm:p-5";
+      refs.next.classList.add("hidden");
+      refs.submit.classList.add("hidden");
+
+      const question = state.questions[state.index];
+
+      $("eraLabel").textContent = question.era;
+      $("questionCounter").textContent =
+        `Pregunta ${state.index + 1} de ${state.questions.length}`;
+      $("questionText").textContent = question.question;
+
+      const typeLabels = {
+        choice: "Opción única",
+        boolean: "Verdadero o falso",
+        multiple: "Selección múltiple"
+      };
+
+      $("typeBadge").textContent = typeLabels[question.type];
+      $("typeHint").textContent =
+        question.type === "multiple"
+          ? "Elige exactamente dos respuestas"
+          : "";
+
+      refs.answers.innerHTML = question.options.map((option, index) => `
+        <button
+          type="button"
+          class="answer rounded-xl p-3 sm:p-4"
+          data-index="${index}"
+        >
+          <span class="letter">${String.fromCharCode(65 + index)}</span>
+          <span class="font-bold leading-snug">${escapeHTML(option)}</span>
+        </button>
+      `).join("");
+
+      refs.answers.querySelectorAll(".answer").forEach(button => {
+        button.addEventListener("click", () => {
+          selectAnswer(Number(button.dataset.index));
+        });
+      });
+
+      if (question.type === "multiple") {
+        refs.submit.classList.remove("hidden");
+        refs.submit.disabled = true;
+        refs.submit.classList.add("opacity-40");
+      }
+
+      state.timeLeft = 20;
+      updateTimer();
+
+      state.timer = setInterval(() => {
+        state.timeLeft--;
+        updateTimer();
+
+        if (state.timeLeft <= 0) {
+          clearInterval(state.timer);
+          evaluate([]);
+        }
+      }, 1000);
+
+      $("questionCard").classList.remove("shake", "pop");
+      updateHud();
+    }
+
+    function selectAnswer(index) {
+      if (state.answered) return;
+
+      const question = state.questions[state.index];
+      beep(360, 0.045, "sine");
+
+      if (question.type === "multiple") {
+        if (state.selected.has(index)) {
+          state.selected.delete(index);
+        } else if (state.selected.size < 2) {
+          state.selected.add(index);
+        }
+
+        refs.answers.querySelectorAll(".answer").forEach((button, optionIndex) => {
+          button.classList.toggle(
+            "selected",
+            state.selected.has(optionIndex)
+          );
+        });
+
+        refs.submit.disabled = state.selected.size !== 2;
+        refs.submit.classList.toggle(
+          "opacity-40",
+          state.selected.size !== 2
+        );
+      } else {
+        evaluate([index]);
+      }
+    }
+
+    function arraysEqual(first, second) {
+      const sortedFirst = [...first].sort();
+      const sortedSecond = [...second].sort();
+
+      return (
+        sortedFirst.length === sortedSecond.length &&
+        sortedFirst.every((value, index) => value === sortedSecond[index])
+      );
+    }
+
+    function evaluate(selected) {
+      if (state.answered) return;
+
+      state.answered = true;
+      clearInterval(state.timer);
+
+      const question = state.questions[state.index];
+      const isCorrect = arraysEqual(selected, question.correct);
+      const multiplier = currentMultiplier();
+      const basePoints = question.type === "multiple" ? 150 : 100;
+      const earnedPoints = isCorrect
+        ? basePoints * multiplier + state.streak * 20
+        : 0;
+
+      if (isCorrect) {
+        state.score += earnedPoints;
+        state.correct++;
+        state.streak++;
+        state.bestStreak = Math.max(state.bestStreak, state.streak);
+
+        beep(760, 0.14, "triangle");
+        $("questionCard").classList.add("pop");
+      } else {
+        state.streak = 0;
+
+        beep(150, 0.22, "sawtooth");
+        $("questionCard").classList.add("shake");
+      }
+
+      refs.answers.querySelectorAll(".answer").forEach((button, index) => {
+        button.disabled = true;
+
+        if (question.correct.includes(index)) {
+          button.classList.add("correct");
+        } else if (selected.includes(index)) {
+          button.classList.add("wrong");
+        }
+      });
+
+      refs.submit.classList.add("hidden");
+
+      refs.feedback.className = isCorrect
+        ? "mt-6 rounded-xl border p-4 sm:p-5 border-emerald-400/35 bg-emerald-400/10"
+        : "mt-6 rounded-xl border p-4 sm:p-5 border-rose-400/35 bg-rose-400/10";
+
+      $("feedbackIcon").textContent = isCorrect ? "⚙️" : "🔧";
+
+      $("feedbackTitle").textContent = isCorrect
+        ? "¡Máquina activada!"
+        : state.timeLeft <= 0
+          ? "¡Tiempo agotado!"
+          : "Revisemos la pieza";
+
+      $("feedbackTitle").className = isCorrect
+        ? "font-black text-lg text-emerald-300"
+        : "font-black text-lg text-rose-300";
+
+      $("feedbackText").textContent = question.explanation;
+
+      $("pointsEarned").textContent = isCorrect
+        ? `+${earnedPoints} puntos · velocidad ×${multiplier}`
+        : "0 puntos";
+
+      refs.next.textContent =
+        state.index === state.questions.length - 1
+          ? "VER RESULTADOS →"
+          : "SIGUIENTE →";
+
+      refs.next.classList.remove("hidden");
+      updateHud();
+    }
+
+    function finishGame() {
+      const ranking = saveRanking(state.player, state.score);
+
+      const rank =
+        ranking.findIndex(player =>
+          player.name === state.player &&
+          player.score === state.score
+        ) + 1;
+
+      const successRate = state.correct / state.questions.length;
+
+      let title = "Aprendiz Industrial";
+      let medal = "⚙️";
+      let message =
+        "Ya conoces varias piezas del cambio industrial. Repasa las explicaciones y vuelve a intentarlo.";
+
+      if (successRate >= 0.85) {
+        title = "Maestro Industrial";
+        medal = "🏆";
+        message =
+          "Dominaste las transformaciones tecnológicas, económicas y sociales antes y después de 1800.";
+      } else if (successRate >= 0.6) {
+        title = "Jefe de Taller";
+        medal = "🥈";
+        message =
+          "Muy buen recorrido histórico. Un nuevo intento rápido puede llevarte al primer puesto.";
+      }
+
+      $("resultTitle").textContent = title;
+      $("resultMedal").textContent = medal;
+      $("resultMessage").textContent = message;
+      $("finalScore").textContent = state.score.toLocaleString("es-PA");
+      $("finalCorrect").textContent =
+        `${state.correct}/${state.questions.length}`;
+      $("finalBestStreak").textContent = state.bestStreak;
+      $("rankMessage").textContent =
+        rank > 0 ? `Puesto #${rank}` : "Sigue acumulando experiencia";
+
+      renderRanking($("resultLeaderboard"), ranking, state.player);
+      renderRanking($("homeLeaderboard"), ranking);
+
+      showScreen(refs.result);
+      beep(880, 0.25, "triangle");
+    }
+
+    refs.form.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const name = refs.name.value.trim();
+      $("nameError").classList.toggle("hidden", Boolean(name));
+
+      if (!name) {
+        refs.name.focus();
+        return;
+      }
+
+      state.player = name.slice(0, 18);
+      startGame();
+    });
+
+    refs.submit.addEventListener("click", () => {
+      if (state.selected.size === 2) {
+        evaluate([...state.selected]);
+      }
+    });
+
+    refs.next.addEventListener("click", () => {
+      state.index++;
+
+      if (state.index < state.questions.length) {
+        renderQuestion();
+      } else {
+        finishGame();
+      }
+    });
+
+    $("restartBtn").addEventListener("click", startGame);
+
+    $("homeBtn").addEventListener("click", () => {
+      clearInterval(state.timer);
+      showScreen(refs.home);
+      refs.name.focus();
+    });
+
+    $("soundBtn").addEventListener("click", () => {
+      state.sound = !state.sound;
+      $("soundBtn").textContent = state.sound ? "🔊" : "🔇";
+
+      if (state.sound) {
+        beep(500, 0.08);
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (!refs.game.classList.contains("active") || state.answered) return;
+
+      const number = Number(event.key);
+
+      if (number >= 1 && number <= 4) {
+        selectAnswer(number - 1);
+      }
+    });
+
+    renderRanking($("homeLeaderboard"));
+  </script>
+</body>
+</html>
